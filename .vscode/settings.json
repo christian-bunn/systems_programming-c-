@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "utils.h": "c",
+        "stdlib.h": "c",
+        "saftey.h": "c",
+        "network.h": "c",
+        "stdio.h": "c",
+        "car.h": "c"
+    }
+}
