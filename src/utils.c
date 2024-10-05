@@ -1,6 +1,7 @@
 // utils.c
 #define _POSIX_C_SOURCE 200809L
 #define _DEFAULT_SOURCE
+#define FLOOR_STR_SIZE 8
 #include "../headers/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -100,16 +101,17 @@ void get_next_floor_up(const char *current_floor, char *next_floor, const char *
 
     if (curr >= high) {
         // Already at highest floor
-        strncpy(next_floor, current_floor, 4);
+        strncpy(next_floor, current_floor, FLOOR_STR_SIZE);
+        next_floor[FLOOR_STR_SIZE - 1] = '\0';
         return;
     }
 
     curr += 1;
     if (curr == 0) curr = 1;
     if (curr < 0) {
-        snprintf(next_floor, sizeof(next_floor), "B%d", -curr);
+        snprintf(next_floor, FLOOR_STR_SIZE, "B%d", -curr);
     } else {
-        snprintf(next_floor, sizeof(next_floor), "%d", curr);
+        snprintf(next_floor, FLOOR_STR_SIZE, "%d", curr);
     }
 }
 
@@ -133,9 +135,9 @@ void get_next_floor_down(const char *current_floor, char *next_floor, const char
     curr -= 1;
     if (curr == 0) curr = -1;
     if (curr < 0) {
-        snprintf(next_floor, sizeof(next_floor), "%d", curr);
+        snprintf(next_floor, FLOOR_STR_SIZE, "B%d", -curr);
     } else {
-        snprintf(next_floor, sizeof(next_floor), "%d", curr);
+        snprintf(next_floor, FLOOR_STR_SIZE, "%d", curr);
     }
 }
 

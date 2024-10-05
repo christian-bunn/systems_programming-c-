@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <arpa/inet.h>
 
 static volatile sig_atomic_t keep_running = 1;
 
@@ -55,21 +56,6 @@ static int num_cars = 0;
 
 // Mutex to protect shared data
 pthread_mutex_t data_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-// Function to compare floors
-int compare_floors(const char *floor1, const char *floor2) {
-    int f1, f2;
-    int is_b1 = (floor1[0] == 'B');
-    int is_b2 = (floor2[0] == 'B');
-    f1 = atoi(is_b1 ? &floor1[1] : floor1);
-    f2 = atoi(is_b2 ? &floor2[1] : floor2);
-    if (is_b1) f1 = -f1;
-    if (is_b2) f2 = -f2;
-
-    if (f1 < f2) return -1;
-    if (f1 > f2) return 1;
-    return 0;
-}
 
 // Function to handle car connections
 void *handle_car(void *arg) {
@@ -402,6 +388,8 @@ void run_controller() {
 }
 
 int main(int argc, char *argv[]) {
+    (void)argc;  // Suppress unused parameter warning
+    (void)argv;  // Suppress unused parameter warning
     setup_signal_handler(int_handler);
     run_controller();
     return EXIT_SUCCESS;

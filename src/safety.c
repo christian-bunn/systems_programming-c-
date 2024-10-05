@@ -23,7 +23,7 @@
  */
 
 #include "../headers/shared_memory.h"
-#include "../headers/saftey.h"
+#include "../headers/safety.h"
 #include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,8 +71,8 @@ void run_safety_system(const char *car_name) {
         if (car_mem->door_obstruction == 1 &&
             strcmp(car_mem->status, "Closing") == 0) {
             // Set status to Opening
-            strncpy(car_mem->status, "Opening", sizeof(car_mem->status) - 1);
-            car_mem->status[sizeof(car_mem->status) - 1] = '\0';
+            strncpy(car_mem->status, "Opening", sizeof(car_mem->status));
+            car_mem->status[STATUS_STR_SIZE - 1] = '\0';
             printf("Door obstruction detected! Opening doors.\n");
             pthread_cond_broadcast(&car_mem->cond);
         }

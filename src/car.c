@@ -155,8 +155,8 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
             // In emergency mode, doors can be opened/closed manually
             // Elevator will not move
             if (car_mem->open_button == 1 && strcmp(car_mem->status, "Closed") == 0) {
-                strncpy(car_mem->status, "Opening", sizeof(car_mem->status) - 1);
-                car_mem->status[sizeof(car_mem->status) - 1] = '\0';
+                strncpy(car_mem->status, "Opening", sizeof(car_mem->status));
+                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
                 pthread_cond_broadcast(&car_mem->cond);
                 pthread_mutex_unlock(&car_mem->mutex);
                 sleep_ms(delay_ms);
@@ -193,8 +193,8 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
 
             // Check if doors need to be opened or closed
             if (car_mem->open_button == 1 && strcmp(car_mem->status, "Closed") == 0) {
-                strncpy(car_mem->status, "Opening", sizeof(car_mem->status) - 1);
-                car_mem->status[sizeof(car_mem->status) - 1] = '\0';
+                strncpy(car_mem->status, "Opening", sizeof(car_mem->status));
+                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
                 pthread_cond_broadcast(&car_mem->cond);
                 pthread_mutex_unlock(&car_mem->mutex);
                 sleep_ms(delay_ms);
@@ -247,8 +247,8 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
                 car_mem->open_button = 0;
             } else if (strcmp(car_mem->status, "Closing") == 0 || strcmp(car_mem->status, "Closed") == 0) {
                 // Reopen doors
-                strncpy(car_mem->status, "Opening", sizeof(car_mem->status) - 1);
-                car_mem->status[sizeof(car_mem->status) - 1] = '\0';
+                strncpy(car_mem->status, "Opening", sizeof(car_mem->status));
+                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
                 car_mem->open_button = 0;
                 pthread_cond_broadcast(&car_mem->cond);
                 pthread_mutex_unlock(&car_mem->mutex);
@@ -301,8 +301,8 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
             // Check if arrived at destination
             if (compare_floors(car_mem->current_floor, car_mem->destination_floor) == 0) {
                 // Open doors
-                strncpy(car_mem->status, "Opening", sizeof(car_mem->status) - 1);
-                car_mem->status[sizeof(car_mem->status) - 1] = '\0';
+                strncpy(car_mem->status, "Opening", sizeof(car_mem->status));
+                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
                 pthread_cond_broadcast(&car_mem->cond);
                 pthread_mutex_unlock(&car_mem->mutex);
                 sleep_ms(delay_ms);
