@@ -3,7 +3,7 @@
 #ifndef SHARED_MEMORY_H
 #define SHARED_MEMORY_H
 #define STATUS_STR_SIZE 10
-#define FLOOR_STR_SIZE 8
+#define FLOOR_STR_SIZE 12
 
 #include <pthread.h>
 #include <stdint.h>

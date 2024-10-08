@@ -1,7 +1,7 @@
 // utils.c
 #define _POSIX_C_SOURCE 200809L
 #define _DEFAULT_SOURCE
-#define FLOOR_STR_SIZE 8
+#include "../headers/shared_memory.h"
 #include "../headers/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
