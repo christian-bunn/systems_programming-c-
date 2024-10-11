@@ -117,7 +117,7 @@ pid_t controller(void)
 {
   pid_t pid = fork();
   if (pid == 0) {
-    execlp("./controller", "./controller", NULL);
+    execlp("/home/c/Projects/major-project/controller", "/home/c/Projects/major-project/controller", NULL);
   }
 
   return pid;

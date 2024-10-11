@@ -16,7 +16,7 @@ int main()
   shm_unlink("/carTest"); // Remove shm object if it exists
 
   msg("Unable to access car Test.");
-  system("./safety Test"); // Attempt to launch safety system with shm missing
+  system("/home/c/Projects/major-project/safety Test"); // Attempt to launch safety system with shm missing
 
   int fd = shm_open("/carTest", O_CREAT | O_RDWR, 0666);
   ftruncate(fd, sizeof(car_shared_mem));
@@ -233,7 +233,7 @@ int safety(void)
 {
   pid_t pid = fork();
   if (pid == 0) {
-    execlp("./safety", "./safety", "Test", NULL);
+    execlp("/home/c/Projects/major-project/safety", "/home/c/Projects/major-project/safety", "Test", NULL);
   }
   return pid;
 }

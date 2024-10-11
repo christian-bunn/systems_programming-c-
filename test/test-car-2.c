@@ -119,7 +119,7 @@ pid_t car(const char *name, const char *lowest_floor, const char *highest_floor,
 {
   pid_t pid = fork();
   if (pid == 0) {
-    execlp("./car", "./car", name, lowest_floor, highest_floor, delay, NULL);
+    execlp("/home/c/Projects/major-project/car", "/home/c/Projects/major-project/car", name, lowest_floor, highest_floor, delay, NULL);
   }
   usleep(DELAY);
   shm_fd = shm_open("/carTest", O_RDWR, 0666);

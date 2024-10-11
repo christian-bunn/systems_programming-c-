@@ -242,7 +242,7 @@ void *sim_run(void *v)
 
     usleep(data->delay);
     char cmdbuf[256];
-    sprintf(cmdbuf, "./call %s %s", data->from, data->to);
+    sprintf(cmdbuf, "/home/c/Projects/major-project/call %s %s", data->from, data->to);
     FILE *fp = popen(cmdbuf, "r");
     char out[256];
     fread(out, 1, 256, fp);
@@ -420,7 +420,7 @@ void car(car_tracker *t, const char *name, const char *lowest_floor, const char 
 {
   pid_t pid = fork();
   if (pid == 0) {
-    execlp("./car", "./car", name, lowest_floor, highest_floor, delay, NULL);
+    execlp("/home/c/Projects/major-project/car", "/home/c/Projects/major-project/car", name, lowest_floor, highest_floor, delay, NULL);
   }
 
   t->pid = pid;
@@ -434,7 +434,7 @@ pid_t controller(void)
 {
   pid_t pid = fork();
   if (pid == 0) {
-    execlp("./controller", "./controller", NULL);
+    execlp("/home/c/Projects/major-project/controller", "/home/c/Projects/major-project/controller", NULL);
   }
 
   return pid;

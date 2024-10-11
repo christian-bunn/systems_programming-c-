@@ -1,7 +1,6 @@
 // network.c
 
-#include "../headers/network.h"
-#include "../headers/utils.h"
+#include "network.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,7 +30,7 @@ int connect_to_controller() {
     }
 
     if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) != 0) {
-        perror("connect");
+        // perror("connect"); // Suppress error messages during retries
         close(sockfd);
         return -1;
     }

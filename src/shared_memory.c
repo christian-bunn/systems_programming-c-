@@ -1,6 +1,6 @@
 // shared_memory.c
 
-#include "../headers/shared_memory.h"
+#include "shared_memory.h"
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -35,6 +35,9 @@ int init_shared_memory(const char *shm_name, car_shared_mem **car_mem) {
     }
 
     close(shm_fd);
+
+    // Initialize the entire shared memory region to zero
+    memset(*car_mem, 0, sizeof(car_shared_mem));
 
     // Initialize mutex attributes
     if (pthread_mutexattr_init(&mutex_attr) != 0) {

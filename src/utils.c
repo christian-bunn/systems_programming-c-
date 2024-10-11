@@ -1,8 +1,9 @@
 // utils.c
+
 #define _POSIX_C_SOURCE 200809L
 #define _DEFAULT_SOURCE
-#include "../headers/shared_memory.h"
-#include "../headers/utils.h"
+#include "utils.h"
+#include "shared_memory.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,12 +17,13 @@ int is_valid_floor(const char *floor) {
         return 0;
     }
     size_t len = strlen(floor);
-    if (len == 0 || len > 4) {
+    if (len == 0 || len >= FLOOR_STR_SIZE) {
         return 0;
     }
 
+    int floor_num = 0;
     if (floor[0] == 'B') {
-        if (len < 2 || len > 3) {
+        if (len < 2 || len > 4) { // B1 to B99
             return 0;
         }
         for (size_t i = 1; i < len; ++i) {
@@ -29,17 +31,20 @@ int is_valid_floor(const char *floor) {
                 return 0;
             }
         }
-        int floor_num = atoi(&floor[1]);
+        floor_num = atoi(&floor[1]);
         if (floor_num < 1 || floor_num > 99) {
             return 0;
         }
     } else {
+        if (len > 3) { // 1 to 999
+            return 0;
+        }
         for (size_t i = 0; i < len; ++i) {
             if (!isdigit((unsigned char)floor[i])) {
                 return 0;
             }
         }
-        int floor_num = atoi(floor);
+        floor_num = atoi(floor);
         if (floor_num < 1 || floor_num > 999) {
             return 0;
         }
@@ -73,77 +78,65 @@ void setup_signal_handler(void (*handler)(int)) {
     sigaction(SIGINT, &sa, NULL);
 }
 
-int compare_floors(const char *floor1, const char *floor2) {
-    // Same as in car.c
-    int f1, f2;
-    int is_b1 = (floor1[0] == 'B');
-    int is_b2 = (floor2[0] == 'B');
-    f1 = atoi(is_b1 ? &floor1[1] : floor1);
-    f2 = atoi(is_b2 ? &floor2[1] : floor2);
-    if (is_b1) f1 = -f1;
-    if (is_b2) f2 = -f2;
+int floor_to_int(const char *floor) {
+    if (floor == NULL || !is_valid_floor(floor)) {
+        return 0; // Or handle error appropriately
+    }
+    if (floor[0] == 'B') {
+        return -atoi(floor + 1);
+    } else {
+        return atoi(floor);
+    }
+}
 
+void int_to_floor(int floor_int, char *floor_str) {
+    if (floor_str == NULL) {
+        return; // Or handle error appropriately
+    }
+    if (floor_int < 0) {
+        snprintf(floor_str, FLOOR_STR_SIZE, "B%d", -floor_int);
+    } else {
+        snprintf(floor_str, FLOOR_STR_SIZE, "%d", floor_int);
+    }
+}
+
+int compare_floors(const char *floor1, const char *floor2) {
+    int f1 = floor_to_int(floor1);
+    int f2 = floor_to_int(floor2);
     if (f1 < f2) return -1;
     if (f1 > f2) return 1;
     return 0;
 }
 
 void get_next_floor_up(const char *current_floor, char *next_floor, const char *highest_floor) {
-    // Same as in car.c
-    int curr, high;
-    int is_b_curr = (current_floor[0] == 'B');
-    int is_b_high = (highest_floor[0] == 'B');
-    curr = atoi(is_b_curr ? &current_floor[1] : current_floor);
-    high = atoi(is_b_high ? &highest_floor[1] : highest_floor);
-
-    if (is_b_curr) curr = -curr;
-    if (is_b_high) high = -high;
-
+    int curr = floor_to_int(current_floor);
+    int high = floor_to_int(highest_floor);
     if (curr >= high) {
         // Already at highest floor
         strncpy(next_floor, current_floor, FLOOR_STR_SIZE);
         next_floor[FLOOR_STR_SIZE - 1] = '\0';
         return;
     }
-
-    curr += 1;
-    if (curr == 0) curr = 1;
-    if (curr < 0) {
-        snprintf(next_floor, FLOOR_STR_SIZE, "B%d", -curr);
-    } else {
-        snprintf(next_floor, FLOOR_STR_SIZE, "%d", curr);
-    }
+    curr++;
+    int_to_floor(curr, next_floor);
 }
 
 void get_next_floor_down(const char *current_floor, char *next_floor, const char *lowest_floor) {
-    // Same as in car.c
-    int curr, low;
-    int is_b_curr = (current_floor[0] == 'B');
-    int is_b_low = (lowest_floor[0] == 'B');
-    curr = atoi(is_b_curr ? &current_floor[1] : current_floor);
-    low = atoi(is_b_low ? &lowest_floor[1] : lowest_floor);
-
-    if (is_b_curr) curr = -curr;
-    if (is_b_low) low = -low;
-
+    int curr = floor_to_int(current_floor);
+    int low = floor_to_int(lowest_floor);
     if (curr <= low) {
         // Already at lowest floor
-        strncpy(next_floor, current_floor, 4);
+        strncpy(next_floor, current_floor, FLOOR_STR_SIZE);
+        next_floor[FLOOR_STR_SIZE - 1] = '\0';
         return;
     }
-
-    curr -= 1;
-    if (curr == 0) curr = -1;
-    if (curr < 0) {
-        snprintf(next_floor, FLOOR_STR_SIZE, "B%d", -curr);
-    } else {
-        snprintf(next_floor, FLOOR_STR_SIZE, "%d", curr);
-    }
+    curr--;
+    int_to_floor(curr, next_floor);
 }
 
 int is_floor_in_range(const char *floor, const char *lowest_floor, const char *highest_floor) {
-    if (compare_floors(floor, lowest_floor) >= 0 && compare_floors(floor, highest_floor) <= 0) {
-        return 1;
-    }
-    return 0;
+    int f = floor_to_int(floor);
+    int low = floor_to_int(lowest_floor);
+    int high = floor_to_int(highest_floor);
+    return (f >= low && f <= high);
 }

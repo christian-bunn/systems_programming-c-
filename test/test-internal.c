@@ -13,7 +13,7 @@ int main()
   shm_unlink("/carTest"); // Remove shm object if it exists
 
   msg("Unable to access car Test.");
-  system("./internal Test open"); // Valid operation but shm unavailable
+  system("/home/c/Projects/major-project/internal Test open"); // Valid operation but shm unavailable
 
   int fd = shm_open("/carTest", O_CREAT | O_RDWR, 0666);
   ftruncate(fd, sizeof(car_shared_mem));
@@ -78,7 +78,7 @@ void test_operation(car_shared_mem *s, const char *st, const char *op, const cha
   strcpy(s->status, st);
   pthread_mutex_unlock(&s->mutex);
   char cmd_buf[256];
-  sprintf(cmd_buf, "./internal Test %s", op);
+  sprintf(cmd_buf, "/home/c/Projects/major-project/internal Test %s", op);
   system(cmd_buf);
 
   usleep(DELAY);

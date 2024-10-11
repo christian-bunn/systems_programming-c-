@@ -9,28 +9,28 @@ void *server(void *);
 int main()
 {
   msg("Unable to connect to elevator system.");
-  system("./call B1 3"); // Testing valid floors with elevator system unavailable
+  system("/home/c/Projects/major-project/call B1 3"); // Testing valid floors with elevator system unavailable
   pthread_t tid;
   pthread_create(&tid, NULL, server, NULL);
   pthread_detach(tid);
   usleep(DELAY);
   msg("RECV: CALL B21 337 : Car Test is arriving.");
-  system("./call B21 337"); // Testing two valid floors
+  system("/home/c/Projects/major-project/call B21 337"); // Testing two valid floors
   usleep(DELAY);
   msg("You are already on that floor!");
-  system("./call 152 152"); // Testing same floor
+  system("/home/c/Projects/major-project/call 152 152"); // Testing same floor
   usleep(DELAY);
   msg("RECV: CALL 416 B68 : Sorry, no car is available to take this request.");
-  system("./call 416 B68"); // Testing two valid floors
+  system("/home/c/Projects/major-project/call 416 B68"); // Testing two valid floors
   usleep(DELAY);
   msg("Invalid floor(s) specified.");
-  system("./call L4 8"); // Testing wrong format floor
+  system("/home/c/Projects/major-project/call L4 8"); // Testing wrong format floor
   usleep(DELAY);
   msg("Invalid floor(s) specified.");
-  system("./call B100 B98"); // Testing out of range floor
+  system("/home/c/Projects/major-project/call B100 B98"); // Testing out of range floor
   usleep(DELAY);
   msg("Invalid floor(s) specified.");
-  system("./call 800 1000"); // Testing out of range floor
+  system("/home/c/Projects/major-project/call 800 1000"); // Testing out of range floor
 
   printf("\nTests completed.\n");
 }

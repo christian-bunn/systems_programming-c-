@@ -121,13 +121,25 @@ void displaycond(car_shared_mem *s)
 
 pid_t car(const char *name, const char *lowest_floor, const char *highest_floor, const char *delay)
 {
-  pid_t pid = fork();
-  if (pid == 0) {
-    execlp("./car", "./car", name, lowest_floor, highest_floor, delay, NULL);
-  }
-  usleep(DELAY);
-  shm_fd = shm_open("/carTest", O_RDWR, 0666);
-  shm = mmap(0, sizeof(*shm), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    pid_t pid = fork();
+    if (pid == 0) {
+        execlp("/home/c/Projects/major-project/car", "car", name, lowest_floor, highest_floor, delay, NULL);
+        perror("execlp"); // If execlp fails, print error
+        exit(1);          // Exit child process
+    }
+    usleep(DELAY);
 
-  return pid;
+    shm_fd = shm_open("/carTest", O_RDWR, 0666);
+    if (shm_fd == -1) {
+        perror("shm_open");
+        exit(1);
+    }
+
+    shm = mmap(0, sizeof(*shm), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (shm == MAP_FAILED) {
+        perror("mmap");
+        exit(1);
+    }
+
+    return pid;
 }
