@@ -13,7 +13,7 @@
 #include <time.h>
 
 int is_valid_floor(const char *floor) {
-    if (floor == NULL) {
+    if (floor == NULL || strlen(floor) == 0 || strlen(floor) >= FLOOR_STR_SIZE) {
         return 0;
     }
     size_t len = strlen(floor);

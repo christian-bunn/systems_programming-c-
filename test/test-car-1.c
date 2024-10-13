@@ -2,7 +2,7 @@
 
 // Tester for car (Shared memory, delay and door operation, no controller)
 
-#define DELAY 50000 // 50ms
+#define DELAY 200000 // 50ms
 #define MILLISECOND 1000 // 1ms
 
 void displaycond(car_shared_mem *);

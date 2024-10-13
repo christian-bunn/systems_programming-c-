@@ -1,4 +1,4 @@
-// shared_memory.h
+/// shared_memory.h
 
 #ifndef SHARED_MEMORY_H
 #define SHARED_MEMORY_H
@@ -6,8 +6,8 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#define STATUS_STR_SIZE 10
-#define FLOOR_STR_SIZE 12
+#define STATUS_STR_SIZE 8
+#define FLOOR_STR_SIZE 4
 
 // Define the shared memory structure
 typedef struct {
@@ -23,7 +23,6 @@ typedef struct {
     uint8_t emergency_stop;                 // 1 if stop button has been pressed, else 0
     uint8_t individual_service_mode;        // 1 if in individual service mode, else 0
     uint8_t emergency_mode;                 // 1 if in emergency mode, else 0
-    uint8_t status_changed;                 // 1 if status has changed, else 0
 } car_shared_mem;
 
 // Function to initialize shared memory (creates and initializes the shared memory segment)

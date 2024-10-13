@@ -2,7 +2,7 @@
 
 // Tester for car (Testing controller, shared memory and service mode.)
 
-#define DELAY 50000 // 50ms
+#define DELAY 200000 // 50ms
 #define MILLISECOND 1000 // 1ms
 
 pid_t car(const char *, const char *, const char *, const char *);

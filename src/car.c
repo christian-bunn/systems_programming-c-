@@ -15,7 +15,6 @@
 #include <sys/select.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <errno.h>
 
 static volatile sig_atomic_t keep_running = 1;
 
@@ -43,8 +42,6 @@ void *controller_thread(void *arg) {
 
     signal(SIGPIPE, SIG_IGN); // Ignore SIGPIPE to prevent crashes
 
-    time_t last_status_time = 0;
-
     while (keep_running) {
         pthread_mutex_lock(&car_mem->mutex);
 
@@ -53,15 +50,8 @@ void *controller_thread(void *arg) {
         pthread_mutex_unlock(&car_mem->mutex);
 
         if (in_special_mode) {
-            // Send appropriate message before disconnecting
+            // Close connection if connected
             if (sockfd != -1) {
-                pthread_mutex_lock(&car_mem->mutex);
-                if (car_mem->individual_service_mode) {
-                    send_message(sockfd, "INDIVIDUAL SERVICE");
-                } else if (car_mem->emergency_mode) {
-                    send_message(sockfd, "EMERGENCY");
-                }
-                pthread_mutex_unlock(&car_mem->mutex);
                 close(sockfd);
                 sockfd = -1;
             }
@@ -74,44 +64,39 @@ void *controller_thread(void *arg) {
             sockfd = connect_to_controller();
             if (sockfd != -1) {
                 // Send CAR message
-                pthread_mutex_lock(&car_mem->mutex);
                 snprintf(message, sizeof(message), "CAR %s %s %s", name, args->lowest_floor, args->highest_floor);
-                pthread_mutex_unlock(&car_mem->mutex);
-                send_message(sockfd, message);
+                if (send_message(sockfd, message) != 0) {
+                    close(sockfd);
+                    sockfd = -1;
+                    sleep_ms(delay);
+                    continue;
+                }
 
                 // Send initial STATUS message
                 pthread_mutex_lock(&car_mem->mutex);
                 snprintf(message, sizeof(message), "STATUS %s %s %s", car_mem->status, car_mem->current_floor, car_mem->destination_floor);
                 pthread_mutex_unlock(&car_mem->mutex);
-                send_message(sockfd, message);
-
-                last_status_time = time(NULL);
+                if (send_message(sockfd, message) != 0) {
+                    close(sockfd);
+                    sockfd = -1;
+                    sleep_ms(delay);
+                    continue;
+                }
             } else {
                 sleep_ms(delay);
                 continue;
             }
         }
 
-        // Send STATUS message if status changed or delay passed
-        time_t current_time = time(NULL);
-
+        // Send STATUS message
         pthread_mutex_lock(&car_mem->mutex);
-        int status_changed = car_mem->status_changed;
-        car_mem->status_changed = 0;
+        snprintf(message, sizeof(message), "STATUS %s %s %s", car_mem->status, car_mem->current_floor, car_mem->destination_floor);
         pthread_mutex_unlock(&car_mem->mutex);
-
-        if (status_changed || (current_time - last_status_time) * 1000 >= delay) {
-            pthread_mutex_lock(&car_mem->mutex);
-            snprintf(message, sizeof(message), "STATUS %s %s %s", car_mem->status, car_mem->current_floor, car_mem->destination_floor);
-            pthread_mutex_unlock(&car_mem->mutex);
-
-            if (send_message(sockfd, message) != 0) {
-                close(sockfd);
-                sockfd = -1;
-                continue;
-            }
-
-            last_status_time = current_time;
+        if (send_message(sockfd, message) != 0) {
+            close(sockfd);
+            sockfd = -1;
+            sleep_ms(delay);
+            continue;
         }
 
         // Use select() to check for incoming messages without blocking
@@ -137,9 +122,7 @@ void *controller_thread(void *arg) {
             // Handle received message
             if (strncmp(response, "FLOOR ", 6) == 0) {
                 pthread_mutex_lock(&car_mem->mutex);
-                strncpy(car_mem->destination_floor, response + 6, FLOOR_STR_SIZE - 1);
-                car_mem->destination_floor[FLOOR_STR_SIZE - 1] = '\0';
-                car_mem->status_changed = 1;
+                snprintf(car_mem->destination_floor, FLOOR_STR_SIZE, "%.*s", FLOOR_STR_SIZE - 1, response + 6);
                 pthread_cond_broadcast(&car_mem->cond);
                 pthread_mutex_unlock(&car_mem->mutex);
             }
@@ -179,14 +162,9 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
     pthread_mutex_lock(&car_mem->mutex);
 
     // Set initial values
-    strncpy(car_mem->current_floor, lowest_floor, FLOOR_STR_SIZE - 1);
-    car_mem->current_floor[FLOOR_STR_SIZE - 1] = '\0';
-
-    strncpy(car_mem->destination_floor, lowest_floor, FLOOR_STR_SIZE - 1);
-    car_mem->destination_floor[FLOOR_STR_SIZE - 1] = '\0';
-
-    strncpy(car_mem->status, "Closed", STATUS_STR_SIZE - 1);
-    car_mem->status[STATUS_STR_SIZE - 1] = '\0';
+    snprintf(car_mem->current_floor, FLOOR_STR_SIZE, "%.*s", FLOOR_STR_SIZE - 1, lowest_floor);
+    snprintf(car_mem->destination_floor, FLOOR_STR_SIZE, "%.*s", FLOOR_STR_SIZE - 1, lowest_floor);
+    snprintf(car_mem->status, STATUS_STR_SIZE, "Closed");
 
     car_mem->open_button = 0;
     car_mem->close_button = 0;
@@ -195,7 +173,6 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
     car_mem->emergency_stop = 0;
     car_mem->individual_service_mode = 0;
     car_mem->emergency_mode = 0;
-    car_mem->status_changed = 1; // Indicate initial status has changed
 
     pthread_mutex_unlock(&car_mem->mutex);
 
@@ -222,7 +199,6 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
         // Handle emergency_stop
         if (car_mem->emergency_stop) {
             car_mem->emergency_mode = 1;
-            car_mem->status_changed = 1;
             pthread_mutex_unlock(&car_mem->mutex);
             continue;
         }
@@ -232,34 +208,26 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
             // In emergency mode, doors can be opened/closed manually
             // Elevator will not move
             if (car_mem->open_button == 1 && strcmp(car_mem->status, "Closed") == 0) {
-                strncpy(car_mem->status, "Opening", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Opening");
                 car_mem->open_button = 0;
-                car_mem->status_changed = 1;
                 pthread_cond_broadcast(&car_mem->cond);
 
                 pthread_mutex_unlock(&car_mem->mutex);
                 sleep_ms(delay);
 
                 pthread_mutex_lock(&car_mem->mutex);
-                strncpy(car_mem->status, "Open", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
-                car_mem->status_changed = 1;
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Open");
                 pthread_cond_broadcast(&car_mem->cond);
             } else if (car_mem->close_button == 1 && strcmp(car_mem->status, "Open") == 0) {
-                strncpy(car_mem->status, "Closing", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Closing");
                 car_mem->close_button = 0;
-                car_mem->status_changed = 1;
                 pthread_cond_broadcast(&car_mem->cond);
 
                 pthread_mutex_unlock(&car_mem->mutex);
                 sleep_ms(delay);
 
                 pthread_mutex_lock(&car_mem->mutex);
-                strncpy(car_mem->status, "Closed", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
-                car_mem->status_changed = 1;
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Closed");
                 pthread_cond_broadcast(&car_mem->cond);
             } else {
                 // Wait for condition variable
@@ -277,42 +245,32 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
 
             // Check if doors need to be opened or closed
             if (car_mem->open_button == 1 && strcmp(car_mem->status, "Closed") == 0) {
-                strncpy(car_mem->status, "Opening", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Opening");
                 car_mem->open_button = 0;
-                car_mem->status_changed = 1;
                 pthread_cond_broadcast(&car_mem->cond);
 
                 pthread_mutex_unlock(&car_mem->mutex);
                 sleep_ms(delay);
 
                 pthread_mutex_lock(&car_mem->mutex);
-                strncpy(car_mem->status, "Open", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
-                car_mem->status_changed = 1;
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Open");
                 pthread_cond_broadcast(&car_mem->cond);
             } else if (car_mem->close_button == 1 && strcmp(car_mem->status, "Open") == 0) {
-                strncpy(car_mem->status, "Closing", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Closing");
                 car_mem->close_button = 0;
-                car_mem->status_changed = 1;
                 pthread_cond_broadcast(&car_mem->cond);
 
                 pthread_mutex_unlock(&car_mem->mutex);
                 sleep_ms(delay);
 
                 pthread_mutex_lock(&car_mem->mutex);
-                strncpy(car_mem->status, "Closed", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
-                car_mem->status_changed = 1;
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Closed");
                 pthread_cond_broadcast(&car_mem->cond);
             } else if (strcmp(car_mem->status, "Closed") == 0 &&
                        compare_floors(car_mem->current_floor, car_mem->destination_floor) != 0 &&
                        is_floor_in_range(car_mem->destination_floor, lowest_floor, highest_floor)) {
                 // Move to destination floor
-                strncpy(car_mem->status, "Between", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
-                car_mem->status_changed = 1;
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Between");
                 pthread_cond_broadcast(&car_mem->cond);
 
                 pthread_mutex_unlock(&car_mem->mutex);
@@ -326,9 +284,7 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
                     // Re-check status
                     if (car_mem->emergency_stop || car_mem->emergency_mode || car_mem->individual_service_mode == 0) {
                         // Stop moving
-                        strncpy(car_mem->status, "Closed", STATUS_STR_SIZE - 1);
-                        car_mem->status[STATUS_STR_SIZE - 1] = '\0';
-                        car_mem->status_changed = 1;
+                        snprintf(car_mem->status, STATUS_STR_SIZE, "Closed");
                         pthread_cond_broadcast(&car_mem->cond);
                         pthread_mutex_unlock(&car_mem->mutex);
                         break;
@@ -344,9 +300,7 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
                         get_next_floor_down(car_mem->current_floor, next_floor, lowest_floor);
                     }
 
-                    strncpy(car_mem->current_floor, next_floor, sizeof(car_mem->current_floor) - 1);
-                    car_mem->current_floor[sizeof(car_mem->current_floor) - 1] = '\0';
-                    car_mem->status_changed = 1;
+                    snprintf(car_mem->current_floor, FLOOR_STR_SIZE, "%s", next_floor);
                     pthread_cond_broadcast(&car_mem->cond);
 
                     pthread_mutex_unlock(&car_mem->mutex);
@@ -354,13 +308,10 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
 
                 pthread_mutex_lock(&car_mem->mutex);
                 // Arrived at destination
-                strncpy(car_mem->status, "Closed", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Closed");
 
                 // Reset destination floor
-                strncpy(car_mem->destination_floor, car_mem->current_floor, sizeof(car_mem->destination_floor) - 1);
-                car_mem->destination_floor[sizeof(car_mem->destination_floor) - 1] = '\0';
-                car_mem->status_changed = 1;
+                snprintf(car_mem->destination_floor, FLOOR_STR_SIZE, "%s", car_mem->current_floor);
                 pthread_cond_broadcast(&car_mem->cond);
             } else {
                 // Wait for condition variable
@@ -376,43 +327,34 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
             if (strcmp(car_mem->status, "Open") == 0) {
                 // Stay open for another delay
                 car_mem->open_button = 0;
-                car_mem->status_changed = 1;
                 pthread_mutex_unlock(&car_mem->mutex);
                 sleep_ms(delay);
                 continue;
             } else if (strcmp(car_mem->status, "Closing") == 0 || strcmp(car_mem->status, "Closed") == 0) {
                 // Reopen doors
-                strncpy(car_mem->status, "Opening", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Opening");
                 car_mem->open_button = 0;
-                car_mem->status_changed = 1;
                 pthread_cond_broadcast(&car_mem->cond);
 
                 pthread_mutex_unlock(&car_mem->mutex);
                 sleep_ms(delay);
 
                 pthread_mutex_lock(&car_mem->mutex);
-                strncpy(car_mem->status, "Open", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
-                car_mem->status_changed = 1;
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Open");
                 pthread_cond_broadcast(&car_mem->cond);
 
                 pthread_mutex_unlock(&car_mem->mutex);
                 sleep_ms(delay);
 
                 pthread_mutex_lock(&car_mem->mutex);
-                strncpy(car_mem->status, "Closing", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
-                car_mem->status_changed = 1;
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Closing");
                 pthread_cond_broadcast(&car_mem->cond);
 
                 pthread_mutex_unlock(&car_mem->mutex);
                 sleep_ms(delay);
 
                 pthread_mutex_lock(&car_mem->mutex);
-                strncpy(car_mem->status, "Closed", STATUS_STR_SIZE - 1);
-                car_mem->status[STATUS_STR_SIZE - 1] = '\0';
-                car_mem->status_changed = 1;
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Closed");
                 pthread_cond_broadcast(&car_mem->cond);
 
                 pthread_mutex_unlock(&car_mem->mutex);
@@ -423,19 +365,15 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
 
         if (car_mem->close_button == 1 && strcmp(car_mem->status, "Open") == 0) {
             // Close doors immediately
-            strncpy(car_mem->status, "Closing", STATUS_STR_SIZE - 1);
-            car_mem->status[STATUS_STR_SIZE - 1] = '\0';
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Closing");
             car_mem->close_button = 0;
-            car_mem->status_changed = 1;
             pthread_cond_broadcast(&car_mem->cond);
 
             pthread_mutex_unlock(&car_mem->mutex);
             sleep_ms(delay);
 
             pthread_mutex_lock(&car_mem->mutex);
-            strncpy(car_mem->status, "Closed", STATUS_STR_SIZE - 1);
-            car_mem->status[STATUS_STR_SIZE - 1] = '\0';
-            car_mem->status_changed = 1;
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Closed");
             pthread_cond_broadcast(&car_mem->cond);
 
             pthread_mutex_unlock(&car_mem->mutex);
@@ -445,9 +383,7 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
         // Handle door obstruction
         if (car_mem->door_obstruction && strcmp(car_mem->status, "Closing") == 0) {
             // Reopen doors
-            strncpy(car_mem->status, "Opening", STATUS_STR_SIZE - 1);
-            car_mem->status[STATUS_STR_SIZE - 1] = '\0';
-            car_mem->status_changed = 1;
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Opening");
             pthread_cond_broadcast(&car_mem->cond);
 
             pthread_mutex_unlock(&car_mem->mutex);
@@ -461,17 +397,14 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
             // Handle overload
             if (car_mem->overload) {
                 // Cannot move due to overload, keep doors open
-                strncpy(car_mem->status, "Open", STATUS_STR_SIZE - 1);
-                car_mem->status_changed = 1;
+                snprintf(car_mem->status, STATUS_STR_SIZE, "Open");
                 pthread_cond_broadcast(&car_mem->cond);
                 pthread_mutex_unlock(&car_mem->mutex);
                 continue;
             }
 
             // Start moving
-            strncpy(car_mem->status, "Between", STATUS_STR_SIZE - 1);
-            car_mem->status[STATUS_STR_SIZE - 1] = '\0';
-            car_mem->status_changed = 1;
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Between");
             pthread_cond_broadcast(&car_mem->cond);
 
             pthread_mutex_unlock(&car_mem->mutex);
@@ -485,8 +418,7 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
                 // Re-check status
                 if (car_mem->emergency_stop || car_mem->emergency_mode || car_mem->individual_service_mode) {
                     // Stop moving
-                    strncpy(car_mem->status, "Closed", STATUS_STR_SIZE - 1);
-                    car_mem->status_changed = 1;
+                    snprintf(car_mem->status, STATUS_STR_SIZE, "Closed");
                     pthread_cond_broadcast(&car_mem->cond);
                     pthread_mutex_unlock(&car_mem->mutex);
                     break;
@@ -502,9 +434,7 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
                     get_next_floor_down(car_mem->current_floor, next_floor, lowest_floor);
                 }
 
-                strncpy(car_mem->current_floor, next_floor, sizeof(car_mem->current_floor) - 1);
-                car_mem->current_floor[sizeof(car_mem->current_floor) - 1] = '\0';
-                car_mem->status_changed = 1;
+                snprintf(car_mem->current_floor, FLOOR_STR_SIZE, "%s", next_floor);
                 pthread_cond_broadcast(&car_mem->cond);
 
                 pthread_mutex_unlock(&car_mem->mutex);
@@ -512,69 +442,60 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
 
             pthread_mutex_lock(&car_mem->mutex);
             // Arrived at destination
-            strncpy(car_mem->status, "Closed", STATUS_STR_SIZE - 1);
-            car_mem->status_changed = 1;
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Closed");
             pthread_cond_broadcast(&car_mem->cond);
 
             // Open doors
-            strncpy(car_mem->status, "Opening", STATUS_STR_SIZE - 1);
-            car_mem->status_changed = 1;
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Opening");
             pthread_cond_broadcast(&car_mem->cond);
 
             pthread_mutex_unlock(&car_mem->mutex);
             sleep_ms(delay);
 
             pthread_mutex_lock(&car_mem->mutex);
-            strncpy(car_mem->status, "Open", STATUS_STR_SIZE - 1);
-            car_mem->status_changed = 1;
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Open");
             pthread_cond_broadcast(&car_mem->cond);
 
             pthread_mutex_unlock(&car_mem->mutex);
             sleep_ms(delay);
 
             pthread_mutex_lock(&car_mem->mutex);
-            strncpy(car_mem->status, "Closing", STATUS_STR_SIZE - 1);
-            car_mem->status_changed = 1;
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Closing");
             pthread_cond_broadcast(&car_mem->cond);
 
             pthread_mutex_unlock(&car_mem->mutex);
             sleep_ms(delay);
 
             pthread_mutex_lock(&car_mem->mutex);
-            strncpy(car_mem->status, "Closed", STATUS_STR_SIZE - 1);
-            car_mem->status_changed = 1;
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Closed");
             pthread_cond_broadcast(&car_mem->cond);
             pthread_mutex_unlock(&car_mem->mutex);
 
         } else if (compare_floors(car_mem->current_floor, car_mem->destination_floor) == 0 &&
                    strcmp(car_mem->status, "Closed") == 0) {
             // Open doors
-            strncpy(car_mem->status, "Opening", STATUS_STR_SIZE - 1);
-            car_mem->status_changed = 1;
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Opening");
             pthread_cond_broadcast(&car_mem->cond);
 
             pthread_mutex_unlock(&car_mem->mutex);
             sleep_ms(delay);
 
             pthread_mutex_lock(&car_mem->mutex);
-            strncpy(car_mem->status, "Open", STATUS_STR_SIZE - 1);
-            car_mem->status_changed = 1;
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Open");
             pthread_cond_broadcast(&car_mem->cond);
 
             pthread_mutex_unlock(&car_mem->mutex);
             sleep_ms(delay);
 
             pthread_mutex_lock(&car_mem->mutex);
-            strncpy(car_mem->status, "Closing", STATUS_STR_SIZE - 1);
-            car_mem->status_changed = 1;
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Closing");
             pthread_cond_broadcast(&car_mem->cond);
 
             pthread_mutex_unlock(&car_mem->mutex);
             sleep_ms(delay);
 
             pthread_mutex_lock(&car_mem->mutex);
-            strncpy(car_mem->status, "Closed", STATUS_STR_SIZE - 1);
-            car_mem->status_changed = 1;
+            snprintf(car_mem->status, STATUS_STR_SIZE, "Closed");
             pthread_cond_broadcast(&car_mem->cond);
             pthread_mutex_unlock(&car_mem->mutex);
 
@@ -606,7 +527,8 @@ int main(int argc, char *argv[]) {
     int delay = atoi(argv[4]);
 
     if (!is_valid_floor(lowest_floor) || !is_valid_floor(highest_floor) || delay <= 0) {
-        fprintf(stderr, "Invalid arguments.\n");
+        fprintf(stderr, "Invalid arguments. lowest_floor: %s, highest_floor: %s, delay: %d\n",
+                lowest_floor, highest_floor, delay);
         return EXIT_FAILURE;
     }
 
