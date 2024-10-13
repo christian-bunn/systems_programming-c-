@@ -6,6 +6,8 @@
         "network.h": "c",
         "stdio.h": "c",
         "car.h": "c",
-        "shared_memory.h": "c"
+        "shared_memory.h": "c",
+        "controller.h": "c",
+        "pthread.h": "c"
     }
 }
