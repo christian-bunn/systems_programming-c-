@@ -1,5 +1,3 @@
-// internal.c
-
 /*
 Note: My get_next_floor_up and get_next_floor_down functions used in this file have been implemented in utils.c and declared in utils.h.
       This allows for them to be shared across components.
@@ -17,7 +15,7 @@ Note: My get_next_floor_up and get_next_floor_down functions used in this file h
 
 void print_error(const char *message, car_shared_mem *shared_mem) {
     printf("%s\n", message);
-    pthread_mutex_unlock(&shared_mem->mutex); // Unlock the mutex
+    pthread_mutex_unlock(&shared_mem->mutex); // Unlock mutex
     exit(EXIT_FAILURE);
 }
 
@@ -67,10 +65,10 @@ int main(int argc, char *argv[]) {
 		if (strcmp(shared_mem->status, "Between") == 0) {
 			print_error("Operation not allowed while elevator is moving.", shared_mem);
 		}
-		// Set destination floor
+		// set destination floor
 		char next_floor[4];
 		if (strcmp(operation, "up") == 0) {
-			// Calculate next floor up
+			// alculate next floor up
 			int floor_num;
 			if (shared_mem->current_floor[0] == 'B') {
 				floor_num = -atoi(shared_mem->current_floor + 1);
@@ -88,7 +86,7 @@ int main(int argc, char *argv[]) {
 				snprintf(next_floor, sizeof(next_floor), "%d", floor_num);
 			}
 		} else {
-			// Calculate next floor down
+			// alculate next floor down
 			int floor_num;
 			if (shared_mem->current_floor[0] == 'B') {
 				floor_num = -atoi(shared_mem->current_floor + 1);
@@ -106,7 +104,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
-		// Check if next_floor is within elevator's range
+		// heck if next_floor is within elevator's range
 		if (compare_floors(next_floor, shared_mem->current_floor) == 0 ||
 		    (compare_floors(next_floor, shared_mem->destination_floor) == 0)) {
 			print_error("Cannot move beyond elevator's range.", shared_mem);

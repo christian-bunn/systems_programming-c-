@@ -36,10 +36,10 @@ int init_shared_memory(const char *shm_name, car_shared_mem **car_mem) {
 
     close(shm_fd);
 
-    // Initialize the entire shared memory region to zero
+    // initialise the entire shared memory region to zero
     memset(*car_mem, 0, sizeof(car_shared_mem));
 
-    // Initialize mutex attributes
+    // mutex attributes
     if (pthread_mutexattr_init(&mutex_attr) != 0) {
         perror("pthread_mutexattr_init");
         munmap(*car_mem, sizeof(car_shared_mem));
@@ -54,7 +54,6 @@ int init_shared_memory(const char *shm_name, car_shared_mem **car_mem) {
         return -1;
     }
 
-    // Initialize mutex
     if (pthread_mutex_init(&(*car_mem)->mutex, &mutex_attr) != 0) {
         perror("pthread_mutex_init");
         pthread_mutexattr_destroy(&mutex_attr);
@@ -64,7 +63,7 @@ int init_shared_memory(const char *shm_name, car_shared_mem **car_mem) {
     }
     pthread_mutexattr_destroy(&mutex_attr);
 
-    // Initialize condition variable attributes
+    // condition variable attributes
     if (pthread_condattr_init(&cond_attr) != 0) {
         perror("pthread_condattr_init");
         pthread_mutex_destroy(&(*car_mem)->mutex);
@@ -81,7 +80,7 @@ int init_shared_memory(const char *shm_name, car_shared_mem **car_mem) {
         return -1;
     }
 
-    // Initialize condition variable
+    // condition variable
     if (pthread_cond_init(&(*car_mem)->cond, &cond_attr) != 0) {
         perror("pthread_cond_init");
         pthread_condattr_destroy(&cond_attr);

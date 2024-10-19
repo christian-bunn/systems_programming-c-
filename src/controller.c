@@ -1,5 +1,3 @@
-// controller.c
-
 #include "../headers/network.h"
 #include "../headers/utils.h"
 #include "../headers/controller.h"
@@ -40,7 +38,7 @@ typedef struct {
     char status[16];
     char current_floor[FLOOR_STR_SIZE];
     char destination_floor[FLOOR_STR_SIZE];
-    Direction direction; // 1 for UP, -1 for DOWN, 0 for IDLE
+    Direction direction;
     floor_request *queue_head;
     pthread_mutex_t queue_mutex;
 } car_info;
@@ -89,12 +87,12 @@ void remove_car_from_service(car_info *car) {
     close(car->sockfd);
 }
 
-// Function to handle car connections
+// function for car connections
 void *handle_car(void *arg) {
     client_arg_t *car_arg = (client_arg_t *)arg;
     int sockfd = car_arg->sockfd;
     char *message = car_arg->message;
-    free(arg); // Free the struct but not the message
+    free(arg);
     car_info *car = NULL;
 
     if (strncmp(message, "CAR ", 4) == 0) {
@@ -106,9 +104,9 @@ void *handle_car(void *arg) {
             return NULL;
         }
 
-        free(message); // Now we can free the message
+        free(message);
 
-        // Add car to cars array
+        // add car to cars array
         pthread_mutex_lock(&data_mutex);
         if (num_cars >= MAX_CARS) {
             pthread_mutex_unlock(&data_mutex);
@@ -126,7 +124,6 @@ void *handle_car(void *arg) {
         car->queue_head = NULL;
         pthread_mutex_init(&car->queue_mutex, NULL);
 
-        // Initialize car status
         strncpy(car->status, "Closed", sizeof(car->status) - 1);
         car->status[sizeof(car->status) - 1] = '\0';
         strncpy(car->current_floor, low_floor, sizeof(car->current_floor) - 1);
@@ -137,7 +134,7 @@ void *handle_car(void *arg) {
 
         pthread_mutex_unlock(&data_mutex);
 
-        // Continue to receive messages from car
+        // receive messages from car
         while (keep_running) {
             if (receive_message(sockfd, &message) != 0) {
                 break;
@@ -150,7 +147,7 @@ void *handle_car(void *arg) {
 
                 sscanf(message + 7, "%15s %11s %11s", car->status, car->current_floor, car->destination_floor);
 
-                // Determine car's direction
+                // determine direction
                 int cmp = compare_floors(car->destination_floor, car->current_floor);
                 if (cmp > 0) {
                     car->direction = UP;
@@ -160,31 +157,29 @@ void *handle_car(void *arg) {
                     car->direction = IDLE;
                 }
 
-                // Check if the car has arrived at the destination floor
+                // has car arrived at the destination floor
                 if ((strcmp(car->status, "Opening") == 0 || strcmp(car->status, "Open") == 0) &&
                     car->queue_head && strcmp(car->queue_head->floor, car->current_floor) == 0) {
-                    // Remove the floor from the queue
+                    // remove the floor from the queue
                     floor_request *old_head = car->queue_head;
                     car->queue_head = car->queue_head->next;
                     free(old_head);
 
-                    // Send next FLOOR message if queue is not empty
+                    // send next FLOOR message if queue is not empty
                     if (car->queue_head) {
                         char floor_msg[20];
                         snprintf(floor_msg, sizeof(floor_msg), "FLOOR %s", car->queue_head->floor);
                         send_message(car->sockfd, floor_msg);
-                        // Update car's destination_floor
+                        // update car's destination_floor
                         strncpy(car->destination_floor, car->queue_head->floor, sizeof(car->destination_floor) - 1);
                         car->destination_floor[sizeof(car->destination_floor) - 1] = '\0';
                     } else {
-                        // No more requests, set direction to IDLE
                         car->direction = IDLE;
                     }
                 }
 
                 pthread_mutex_unlock(&car->queue_mutex);
             } else if (strcmp(message, "INDIVIDUAL SERVICE") == 0 || strcmp(message, "EMERGENCY") == 0) {
-                // Remove car from service
                 remove_car_from_service(car);
                 free(message);
                 return NULL;
@@ -194,13 +189,11 @@ void *handle_car(void *arg) {
     } else {
         free(message);
     }
-
-    // Handle unexpected disconnection
     remove_car_from_service(car);
     return NULL;
 }
 
-// Function to select the best car for a call request
+// select the best car for a call request
 car_info *select_best_car(call_request *call) {
     car_info *best_car = NULL;
     int min_distance = INT_MAX;
@@ -209,14 +202,13 @@ car_info *select_best_car(call_request *call) {
     for (int i = 0; i < num_cars; ++i) {
         car_info *car = &cars[i];
 
-        // Check if car can service both source and destination floors
         if (is_floor_in_range(call->source_floor, car->lowest_floor, car->highest_floor) &&
             is_floor_in_range(call->dest_floor, car->lowest_floor, car->highest_floor)) {
 
-            // Calculate distance from car's current floor to source floor
+            // calculate distance from car's current floor to source floor
             int distance = abs(compare_floors(car->current_floor, call->source_floor));
 
-            // Choose the car with the minimum distance to the source floor
+            // choose the car with the minimum distance to the source floor
             if (distance < min_distance) {
                 min_distance = distance;
                 best_car = car;
@@ -228,18 +220,18 @@ car_info *select_best_car(call_request *call) {
     return best_car;
 }
 
-// Function to insert floors into car's queue
+// insert floors into car's queue
 void insert_into_queue(car_info *car, call_request *call) {
     pthread_mutex_lock(&car->queue_mutex);
 
     Direction direction = car->direction;
-    // If the elevator is idle, set its direction to the call's direction
+    // if the elevator is idle, set its direction to the call's direction
     if (direction == IDLE) {
         direction = compare_floors(car->current_floor, call->source_floor) < 0 ? UP : DOWN;
         car->direction = direction;
     }
 
-    // Create floor requests for source and destination
+    // create floor requests for source and destination
     floor_request *from_request = malloc(sizeof(floor_request));
     strncpy(from_request->floor, call->source_floor, sizeof(from_request->floor) - 1);
     from_request->floor[sizeof(from_request->floor) - 1] = '\0';
@@ -261,7 +253,6 @@ void insert_into_queue(car_info *car, call_request *call) {
         floor_request *req = *current;
         int cmp = compare_floors(from_request->floor, req->floor);
         if ((direction == UP && cmp < 0) || (direction == DOWN && cmp > 0)) {
-            // Insert here
             from_request->next = req;
             if (prev) {
                 prev->next = from_request;
@@ -276,7 +267,6 @@ void insert_into_queue(car_info *car, call_request *call) {
     }
 
     if (!inserted) {
-        // Insert at the end
         if (prev) {
             prev->next = from_request;
         } else {
@@ -284,7 +274,7 @@ void insert_into_queue(car_info *car, call_request *call) {
         }
     }
 
-    // Now insert 'to_request' after 'from_request' or at the end
+    // now insert 'to_request' after 'from_request' of at the end
     current = &from_request->next;
     prev = from_request;
     inserted = 0;
@@ -293,7 +283,6 @@ void insert_into_queue(car_info *car, call_request *call) {
         floor_request *req = *current;
         int cmp = compare_floors(to_request->floor, req->floor);
         if ((to_request->direction == UP && cmp < 0) || (to_request->direction == DOWN && cmp > 0)) {
-            // Insert here
             to_request->next = req;
             prev->next = to_request;
             inserted = 1;
@@ -304,11 +293,10 @@ void insert_into_queue(car_info *car, call_request *call) {
     }
 
     if (!inserted) {
-        // Insert at the end
         prev->next = to_request;
     }
 
-    // If the car is idle, or if the new 'from_request' is at the head of the queue, send FLOOR message
+    // if the car is idle, or if the new 'from_request' is at the head of the queue, send FLOOR message
     if (car->queue_head == from_request) {
         char floor_msg[20];
         snprintf(floor_msg, sizeof(floor_msg), "FLOOR %s", car->queue_head->floor);
@@ -321,12 +309,12 @@ void insert_into_queue(car_info *car, call_request *call) {
     pthread_mutex_unlock(&car->queue_mutex);
 }
 
-// Function to handle call pad connections
+// handle call pad connections
 void *handle_call(void *arg) {
     client_arg_t *call_arg = (client_arg_t *)arg;
     int sockfd = call_arg->sockfd;
     char *message = call_arg->message;
-    free(arg); // Free the struct but not the message
+    free(arg);
 
     if (strncmp(message, "CALL ", 5) == 0) {
         // Parse CALL message
@@ -345,10 +333,10 @@ void *handle_call(void *arg) {
             return NULL;
         }
 
-        // Determine direction
+        // determine direction
         Direction dir = (compare_floors(source_floor, dest_floor) < 0) ? UP : DOWN;
 
-        // Create call request
+        // create call request
         call_request call;
         strncpy(call.source_floor, source_floor, sizeof(call.source_floor) - 1);
         call.source_floor[sizeof(call.source_floor) - 1] = '\0';
@@ -356,7 +344,7 @@ void *handle_call(void *arg) {
         call.dest_floor[sizeof(call.dest_floor) - 1] = '\0';
         call.direction = dir;
 
-        // Find the best car to service the request
+        // find the best car to service the request
         car_info *selected_car = select_best_car(&call);
 
         if (selected_car) {
@@ -385,14 +373,13 @@ void run_controller() {
     struct sockaddr_in serv_addr;
     int opt_enable = 1;
 
-    // Create listening socket
     listen_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (listen_sock == -1) {
         perror("socket");
         exit(EXIT_FAILURE);
     }
 
-    // Enable address reuse
+    // address reuse
     setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &opt_enable, sizeof(opt_enable));
 
     // Bind socket
@@ -407,7 +394,6 @@ void run_controller() {
         exit(EXIT_FAILURE);
     }
 
-    // Listen
     if (listen(listen_sock, 5) != 0) {
         perror("listen");
         close(listen_sock);
@@ -428,7 +414,6 @@ void run_controller() {
             continue;
         }
 
-        // Read the first message to determine client type
         char *message = NULL;
         if (receive_message(*new_sock, &message) != 0) {
             close(*new_sock);
@@ -437,14 +422,14 @@ void run_controller() {
         }
 
         if (strncmp(message, "CAR ", 4) == 0) {
-            // Car connection
+
             client_arg_t *car_arg = malloc(sizeof(client_arg_t));
             car_arg->sockfd = *new_sock;
-            car_arg->message = message; // Pass the message
+            car_arg->message = message;
             pthread_t car_thread;
             pthread_create(&car_thread, NULL, handle_car, car_arg);
             pthread_detach(car_thread);
-            free(new_sock); // The sockfd is now managed by the thread
+            free(new_sock);
         } else if (strncmp(message, "CALL ", 5) == 0) {
             // Call pad connection
             client_arg_t *call_arg = malloc(sizeof(client_arg_t));
@@ -455,22 +440,20 @@ void run_controller() {
             pthread_detach(call_thread);
             free(new_sock); // The sockfd is now managed by the thread
         } else {
-            // Unknown connection
             close(*new_sock);
             free(new_sock);
             free(message);
         }
     }
-
-    // Close listening socket
+    // close socket
     close(listen_sock);
 }
 
 int main(int argc, char *argv[]) {
-    (void)argc;  // Suppress unused parameter warning
-    (void)argv;  // Suppress unused parameter warning
+    (void)argc;
+    (void)argv;
     setup_signal_handler(int_handler);
-    signal(SIGPIPE, SIG_IGN); // Ignore SIGPIPE to prevent crashes on write failures
+    signal(SIGPIPE, SIG_IGN); 
     run_controller();
     return EXIT_SUCCESS;
 }

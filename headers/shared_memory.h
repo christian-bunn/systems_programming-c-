@@ -9,7 +9,6 @@
 #define STATUS_STR_SIZE 8
 #define FLOOR_STR_SIZE 4
 
-// Define the shared memory structure
 typedef struct {
     pthread_mutex_t mutex;                  // Locked while accessing struct contents
     pthread_cond_t cond;                    // Signalled when the contents change
@@ -25,16 +24,16 @@ typedef struct {
     uint8_t emergency_mode;                 // 1 if in emergency mode, else 0
 } car_shared_mem;
 
-// Function to initialize shared memory (creates and initializes the shared memory segment)
+// Function to initialise shared memory 
 int init_shared_memory(const char *shm_name, car_shared_mem **car_mem);
 
 // Function to open existing shared memory
 int open_shared_memory(const char *shm_name, car_shared_mem **car_mem);
 
-// Function to close shared memory (unmaps the shared memory segment)
+// Function to close shared memory
 void close_shared_memory(car_shared_mem *car_mem);
 
-// Function to unlink shared memory (removes the shared memory object)
+// Function to unlink shared memory
 void unlink_shared_memory(const char *shm_name);
 
 #endif // SHARED_MEMORY_H

@@ -1,5 +1,3 @@
-// call.c
-
 #include "../headers/network.h"
 #include "../headers/call.h"
 #include "../headers/utils.h"
@@ -29,7 +27,7 @@ void run_call(const char *source_floor, const char *destination_floor) {
         return;
     }
 
-    // Send CALL message
+    // send CALL message
     snprintf(message, sizeof(message), "CALL %s %s", source_floor, destination_floor);
     if (send_message(sockfd, message) != 0) {
         printf("Unable to connect to elevator system.\n");
@@ -37,7 +35,7 @@ void run_call(const char *source_floor, const char *destination_floor) {
         return;
     }
 
-    // Receive response
+    // recive response
     if (receive_message(sockfd, &response) != 0) {
         printf("Unable to connect to elevator system.\n");
         close(sockfd);
@@ -45,7 +43,7 @@ void run_call(const char *source_floor, const char *destination_floor) {
     }
 
     if (strncmp(response, "CAR ", 4) == 0) {
-        // Elevator dispatched
+        // elevator dispatched
         char car_name[32];
         sscanf(response + 4, "%31s", car_name);
         printf("Car %s is arriving.\n", car_name);

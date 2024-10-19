@@ -80,7 +80,7 @@ void setup_signal_handler(void (*handler)(int)) {
 
 int floor_to_int(const char *floor) {
     if (floor == NULL || !is_valid_floor(floor)) {
-        return 0; // Or handle error appropriately
+        return 0;
     }
     if (floor[0] == 'B') {
         return -atoi(floor + 1);
@@ -91,7 +91,7 @@ int floor_to_int(const char *floor) {
 
 void int_to_floor(int floor_int, char *floor_str) {
     if (floor_str == NULL) {
-        return; // Or handle error appropriately
+        return;
     }
     if (floor_int < 0) {
         snprintf(floor_str, FLOOR_STR_SIZE, "B%d", -floor_int);
@@ -112,7 +112,7 @@ void get_next_floor_up(const char *current_floor, char *next_floor, const char *
     int curr = floor_to_int(current_floor);
     int high = floor_to_int(highest_floor);
     if (curr >= high) {
-        // Already at highest floor
+        // already highest floor
         strncpy(next_floor, current_floor, FLOOR_STR_SIZE);
         next_floor[FLOOR_STR_SIZE - 1] = '\0';
         return;
@@ -125,7 +125,7 @@ void get_next_floor_down(const char *current_floor, char *next_floor, const char
     int curr = floor_to_int(current_floor);
     int low = floor_to_int(lowest_floor);
     if (curr <= low) {
-        // Already at lowest floor
+        // already lowest floor
         strncpy(next_floor, current_floor, FLOOR_STR_SIZE);
         next_floor[FLOOR_STR_SIZE - 1] = '\0';
         return;

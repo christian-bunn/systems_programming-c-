@@ -1,5 +1,3 @@
-// network.c
-
 #include "network.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,7 +28,6 @@ int connect_to_controller() {
     }
 
     if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) != 0) {
-        // perror("connect"); // Suppress error messages during retries
         close(sockfd);
         return -1;
     }
@@ -53,7 +50,7 @@ int receive_message(int sockfd, char **message) {
     uint32_t len_net;
     ssize_t n = read(sockfd, &len_net, sizeof(len_net));
     if (n == 0) {
-        return -1; // Connection closed
+        return -1;
     }
     if (n != sizeof(len_net)) {
         return -1;
