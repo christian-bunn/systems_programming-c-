@@ -8,6 +8,7 @@
         "car.h": "c",
         "shared_memory.h": "c",
         "controller.h": "c",
-        "pthread.h": "c"
+        "pthread.h": "c",
+        "mman.h": "c"
     }
 }
