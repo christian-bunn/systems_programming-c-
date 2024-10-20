@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 		// set destination floor
 		char next_floor[4];
 		if (strcmp(operation, "up") == 0) {
-			// alculate next floor up
+			// calculate next floor up
 			int floor_num;
 			if (shared_mem->current_floor[0] == 'B') {
 				floor_num = -atoi(shared_mem->current_floor + 1);
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 				snprintf(next_floor, sizeof(next_floor), "%d", floor_num);
 			}
 		} else {
-			// alculate next floor down
+			// calculate next floor down
 			int floor_num;
 			if (shared_mem->current_floor[0] == 'B') {
 				floor_num = -atoi(shared_mem->current_floor + 1);
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
-		// heck if next_floor is within elevator's range
+		// check if next_floor is within elevator's range
 		if (compare_floors(next_floor, shared_mem->current_floor) == 0 ||
 		    (compare_floors(next_floor, shared_mem->destination_floor) == 0)) {
 			print_error("Cannot move beyond elevator's range.", shared_mem);

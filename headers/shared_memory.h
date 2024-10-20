@@ -22,6 +22,8 @@ typedef struct {
     uint8_t emergency_stop;                 // 1 if stop button has been pressed, else 0
     uint8_t individual_service_mode;        // 1 if in individual service mode, else 0
     uint8_t emergency_mode;                 // 1 if in emergency mode, else 0
+    char lowest_floor[FLOOR_STR_SIZE];
+    char highest_floor[FLOOR_STR_SIZE];
 } car_shared_mem;
 
 // Function to initialise shared memory 

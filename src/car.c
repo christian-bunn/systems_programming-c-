@@ -55,7 +55,7 @@ void *controller_thread(void *arg) {
             continue;
         }
 
-        // attempt to conect to controller if not connected
+        // attempt to connect to controller if not connected
         if (sockfd == -1) {
             sockfd = connect_to_controller();
             if (sockfd != -1) {
@@ -164,7 +164,6 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
     car_mem->emergency_mode = 0;
 
     pthread_mutex_unlock(&car_mem->mutex);
-
 
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, int_handler);
@@ -306,7 +305,6 @@ void run_car(const char *name, const char *lowest_floor, const char *highest_flo
             pthread_mutex_unlock(&car_mem->mutex);
             continue;
         }
-
 
         // Handle open and close buttons
         if (car_mem->open_button == 1) {

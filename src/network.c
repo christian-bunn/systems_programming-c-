@@ -16,7 +16,6 @@ int connect_to_controller() {
         return -1;
     }
 
-    // Zero out the server address structure
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(CONTROLLER_PORT);
