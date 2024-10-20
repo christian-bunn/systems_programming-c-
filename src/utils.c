@@ -21,7 +21,7 @@ int is_valid_floor(const char *floor) {
 
     int floor_num = 0;
     if (floor[0] == 'B') {
-        if (len < 2 || len > 4) {
+        if (len < 2 || len > 4) { // B1 to B99
             return 0;
         }
         for (size_t i = 1; i < len; ++i) {
@@ -34,7 +34,7 @@ int is_valid_floor(const char *floor) {
             return 0;
         }
     } else {
-        if (len > 3) {
+        if (len > 3) { // 1 to 999
             return 0;
         }
         for (size_t i = 0; i < len; ++i) {
@@ -102,7 +102,7 @@ int compare_floors(const char *floor1, const char *floor2) {
     int f1 = floor_to_int(floor1);
     int f2 = floor_to_int(floor2);
 
-    printf("Comparing floors: %s (%d) and %s (%d)\n", floor1, f1, floor2, f2);  // Debug logging for floor comparison
+    // printf("Comparing floors: %s (%d) and %s (%d)\n", floor1, f1, floor2, f2);  // Debug logging for floor comparison
 
     if (f1 < f2) return -1;
     if (f1 > f2) return 1;
@@ -113,7 +113,7 @@ void get_next_floor_up(const char *current_floor, char *next_floor, const char *
     int curr = floor_to_int(current_floor);
     int high = floor_to_int(highest_floor);
 
-    printf("Getting next floor up from %s (current: %d, highest: %d)\n", current_floor, curr, high);  // Debug
+    // printf("Getting next floor up from %s (current: %d, highest: %d)\n", current_floor, curr, high);  // Debug
 
     if (curr >= high) {
         strncpy(next_floor, current_floor, FLOOR_STR_SIZE);
@@ -128,7 +128,7 @@ void get_next_floor_down(const char *current_floor, char *next_floor, const char
     int curr = floor_to_int(current_floor);
     int low = floor_to_int(lowest_floor);
 
-    printf("Getting next floor down from %s (current: %d, lowest: %d)\n", current_floor, curr, low);  // Debug
+    // printf("Getting next floor down from %s (current: %d, lowest: %d)\n", current_floor, curr, low);  // Debug
 
     if (curr <= low) {
         strncpy(next_floor, current_floor, FLOOR_STR_SIZE);
